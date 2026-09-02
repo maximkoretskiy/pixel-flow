@@ -21,7 +21,7 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "phaser": "^4.2.1"
+    "phaser": "^3.90.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
