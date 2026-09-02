@@ -18,7 +18,12 @@ describe('GameSimulation commands', () => {
     const events = game.advance(FIXED_STEP_MS);
     expect(events.map((event) => event.type)).toEqual(['gameStarted', 'containerLaunched']);
     expect(game.getSnapshot().stacks[0][0]).toEqual({ color: 'blue', ammo: 1 });
-    expect(game.getSnapshot().active[0]).toMatchObject({ launchId: 1, color: 'pink', ammo: 2, distance: 0 });
+    expect(game.getSnapshot().active[0]).toMatchObject({
+      launchId: 1,
+      color: 'pink',
+      ammo: 2,
+      distance: FIXED_STEP_MS / 1000,
+    });
   });
 
   it('ignores stale launches from an empty source', () => {
