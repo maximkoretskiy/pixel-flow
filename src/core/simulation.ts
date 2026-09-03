@@ -11,9 +11,11 @@ import type {
   DomainEvent,
   GameCommand,
   GamePhase,
+  GameSimulationState,
   GameSnapshot,
   LaunchSource,
   LevelDefinition,
+  SimulationOptions,
 } from './model';
 
 export const FIXED_STEP_MS = 1000 / 60;
@@ -35,8 +37,16 @@ export class GameSimulation {
   private readonly commands: GameCommand[] = [];
   private readonly route: Route;
 
-  constructor(private readonly level: LevelDefinition) {
+  constructor(
+    private readonly level: LevelDefinition,
+    private readonly options: SimulationOptions = {},
+  ) {
     assertValidLevel(level);
+    const maxBufferOccupancy = options.maxBufferOccupancy;
+    if (maxBufferOccupancy !== undefined &&
+        (!Number.isInteger(maxBufferOccupancy) || maxBufferOccupancy < 0 || maxBufferOccupancy > 5)) {
+      throw new RangeError('maxBufferOccupancy must be an integer from 0 through 5');
+    }
     this.board = createBoard(level.board);
     this.stacks = level.stacks.map((stack) => stack.map((seed) => ({ ...seed })));
     this.route = buildRoute(level.board.width, level.board.height);
@@ -82,6 +92,42 @@ export class GameSimulation {
       active: this.active.map((container) => ({ ...container })),
       danger: this.danger,
     };
+  }
+
+  saveState(): GameSimulationState {
+    return {
+      phase: this.phase,
+      board: cloneBoard(this.board),
+      stacks: this.stacks.map((stack) => stack.map((seed) => ({ ...seed }))),
+      buffer: this.buffer.map((seed) => (seed ? { ...seed } : null)),
+      active: this.active.map((container) => ({ ...container })),
+      danger: this.danger,
+      nextLaunchId: this.nextLaunchId,
+      accumulatorMs: this.accumulatorMs,
+      pendingCommands: this.commands.map((command) => (
+        command.type === 'launch' ? { ...command, source: { ...command.source } } : { ...command }
+      )),
+    };
+  }
+
+  fork(options: SimulationOptions = this.options): GameSimulation {
+    const fork = new GameSimulation(this.level, options);
+    fork.restoreState(this.saveState());
+    return fork;
+  }
+
+  private restoreState(state: GameSimulationState): void {
+    this.phase = state.phase;
+    this.board = state.board.map((row) => [...row]);
+    this.stacks = state.stacks.map((stack) => stack.map((seed) => ({ ...seed })));
+    this.buffer = state.buffer.map((seed) => (seed ? { ...seed } : null));
+    this.active = state.active.map((container) => ({ ...container }));
+    this.danger = state.danger;
+    this.nextLaunchId = state.nextLaunchId;
+    this.accumulatorMs = state.accumulatorMs;
+    this.commands.splice(0, this.commands.length, ...state.pendingCommands.map((command) => (
+      command.type === 'launch' ? { ...command, source: { ...command.source } } : { ...command }
+    )));
   }
 
   private tick(events: DomainEvent[]): void {
@@ -177,6 +223,12 @@ export class GameSimulation {
 
   private resolveLap(container: MutableActiveContainer, events: DomainEvent[]): void {
     if (container.ammo === 0) return;
+    const maxBufferOccupancy = this.options.maxBufferOccupancy ?? this.buffer.length;
+    if (this.buffer.filter(Boolean).length >= maxBufferOccupancy) {
+      this.phase = 'lost';
+      events.push({ type: 'gameLost' });
+      return;
+    }
     const slot = this.buffer.findIndex((item) => item === null);
     if (slot === -1) {
       this.phase = 'lost';

@@ -42,6 +42,27 @@ export interface GameSnapshot {
   readonly danger: boolean;
 }
 
+export interface SimulationOptions {
+  readonly maxBufferOccupancy?: number;
+}
+
+export interface GameSimulationState {
+  readonly phase: GamePhase;
+  readonly board: ReadonlyArray<ReadonlyArray<ColorId | null>>;
+  readonly stacks: ReadonlyArray<ReadonlyArray<ContainerSeed>>;
+  readonly buffer: ReadonlyArray<ContainerSeed | null>;
+  readonly active: ReadonlyArray<ActiveContainer>;
+  readonly danger: boolean;
+  readonly nextLaunchId: number;
+  readonly accumulatorMs: number;
+  readonly pendingCommands: readonly GameCommand[];
+}
+
+export interface TimedLaunch {
+  readonly atMs: number;
+  readonly source: LaunchSource;
+}
+
 export type DomainEvent =
   | {
       readonly type:
