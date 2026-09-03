@@ -139,9 +139,9 @@ describe('GameSimulation rules', () => {
   it('resolves simultaneous shots by launch ID against the updated board', () => {
     const game = running({
       id: 'launch-order',
-      board: { width: 2, height: 1, cells: [
-        { x: 0, y: 0, color: 'blue' },
-        { x: 1, y: 0, color: 'pink' },
+      board: { width: 1, height: 2, cells: [
+        { x: 0, y: 0, color: 'pink' },
+        { x: 0, y: 1, color: 'blue' },
       ] },
       stacks: [
         [{ color: 'blue', ammo: 1 }],
@@ -157,7 +157,7 @@ describe('GameSimulation rules', () => {
     const events = game.advance(FIXED_STEP_MS);
 
     expect(events.some((event) => event.type === 'gameWon')).toBe(true);
-    expect(game.getSnapshot().board).toEqual([[null, null]]);
+    expect(game.getSnapshot().board).toEqual([[null], [null]]);
   });
 
   it('does not move containers while paused', () => {

@@ -26,13 +26,16 @@ describe('portrait layout', () => {
     }
   });
 
-  it('maps track distance clockwise around the route rectangle', () => {
+  it('maps track distance counterclockwise from the bottom-left corner', () => {
     expect(trackPoint(0, 12)).toMatchObject({
       x: LAYOUT.route.x,
       y: LAYOUT.route.y + LAYOUT.route.height,
-      angle: -Math.PI / 2,
+      angle: 0,
     });
-    expect(trackPoint(3, 12)).toMatchObject({ x: LAYOUT.route.x, y: LAYOUT.route.y });
+    expect(trackPoint(3, 12)).toMatchObject({
+      x: LAYOUT.route.x + LAYOUT.route.width,
+      y: LAYOUT.route.y + LAYOUT.route.height,
+    });
     expect(trackPoint(6, 12)).toMatchObject({
       x: LAYOUT.route.x + LAYOUT.route.width,
       y: LAYOUT.route.y,
