@@ -49,8 +49,15 @@ export class SourcesView {
         { fontFamily: 'system-ui', fontSize: '18px', color: '#ffffff' },
       ).setOrigin(0.5));
     };
+    const firstSlot = LAYOUT.bufferSlots[0];
+    const lastSlot = LAYOUT.bufferSlots.at(-1);
+    if (snapshot.danger && firstSlot && lastSlot) {
+      const width = lastSlot.x + lastSlot.width - firstSlot.x;
+      this.graphics.fillStyle(0xef4444, 0.2).fillRoundedRect(firstSlot.x - 4, firstSlot.y - 4, width + 8, firstSlot.height + 8, 14);
+      this.graphics.lineStyle(4, 0xef4444).strokeRoundedRect(firstSlot.x - 4, firstSlot.y - 4, width + 8, firstSlot.height + 8, 14);
+    }
     LAYOUT.bufferSlots.forEach((rect, index) => {
-      this.graphics.lineStyle(snapshot.danger ? 4 : 2, snapshot.danger ? 0xef4444 : 0x64748b)
+      this.graphics.lineStyle(2, 0x64748b)
         .strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 10);
       const seed = snapshot.buffer[index];
       if (seed) drawSeed(seed, rect);

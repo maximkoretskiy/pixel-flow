@@ -45,6 +45,18 @@ export class GameSimulation {
     this.commands.push(command);
   }
 
+  restart(): void {
+    this.phase = 'ready';
+    this.board = createBoard(this.level.board);
+    this.stacks = this.level.stacks.map((stack) => stack.map((seed) => ({ ...seed })));
+    this.buffer = Array.from({ length: 5 }, () => null);
+    this.active = [];
+    this.danger = false;
+    this.nextLaunchId = 1;
+    this.accumulatorMs = 0;
+    this.commands.length = 0;
+  }
+
   advance(elapsedMs: number): readonly DomainEvent[] {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
       throw new RangeError('elapsedMs must be finite and non-negative');

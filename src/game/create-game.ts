@@ -3,6 +3,7 @@ import { GameScene } from './GameScene';
 import { GAME_HEIGHT, GAME_WIDTH } from './layout';
 
 export function createGame(parent: HTMLElement): Phaser.Game {
+  parent.dataset.phase = 'ready';
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,

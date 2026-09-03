@@ -1,19 +1,25 @@
 import Phaser from 'phaser';
-import type { DomainEvent } from '../core/model';
+import type { DomainEvent, GamePhase, GameSnapshot } from '../core/model';
 import { buildRoute } from '../core/route';
-import { FIXED_STEP_MS, GameSimulation } from '../core/simulation';
+import { GameSimulation } from '../core/simulation';
 import { LEVEL_ONE } from '../levels/level-one';
 import { LAYOUT } from './layout';
 import { trackPoint } from './track-geometry';
 import { BoardView, COLOR_HEX } from './views/BoardView';
 import { RouteView } from './views/RouteView';
 import { SourcesView } from './views/SourcesView';
+import { OverlayView } from './views/OverlayView';
+import { bindVisibility } from './visibility-controller';
 
 export class GameScene extends Phaser.Scene {
-  private readonly simulation = new GameSimulation(LEVEL_ONE);
+  private simulation!: GameSimulation;
   private boardView!: BoardView;
   private routeView!: RouteView;
   private sourcesView!: SourcesView;
+  private overlayView!: OverlayView;
+  private unbindVisibility?: () => void;
+  private fatalError = false;
+  private errorLogged = false;
   private readonly routeLength = buildRoute(LEVEL_ONE.board.width, LEVEL_ONE.board.height).length;
 
   constructor() {
@@ -21,20 +27,31 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.simulation = new GameSimulation(LEVEL_ONE);
+    this.fatalError = false;
+    this.errorLogged = false;
     this.boardView = new BoardView(this);
     this.routeView = new RouteView(this, this.routeLength);
     this.sourcesView = new SourcesView(this, (source) => {
       this.simulation.dispatch({ type: 'launch', source });
     });
-    this.simulation.dispatch({ type: 'start' });
-    this.simulation.advance(FIXED_STEP_MS);
+    this.overlayView = new OverlayView(this, (phase) => this.handleOverlayAction(phase));
+    this.unbindVisibility = bindVisibility(document, () => {
+      this.simulation.dispatch({ type: 'pause' });
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     this.renderSnapshot();
   }
 
   update(_time: number, delta: number): void {
-    const events = this.simulation.advance(delta);
-    this.playEvents(events);
-    this.renderSnapshot();
+    if (this.fatalError) return;
+    try {
+      const events = this.simulation.advance(delta);
+      this.playEvents(events);
+      this.renderSnapshot();
+    } catch (error) {
+      this.enterFatal(error);
+    }
   }
 
   private renderSnapshot(): void {
@@ -42,6 +59,45 @@ export class GameScene extends Phaser.Scene {
     this.boardView.render(snapshot);
     this.routeView.render(snapshot);
     this.sourcesView.render(snapshot);
+    const phase = this.fatalError ? 'error' : snapshot.phase;
+    this.overlayView.render(phase);
+    this.setObservability(snapshot, phase);
+  }
+
+  private handleOverlayAction(phase: Exclude<GamePhase, 'running'>): void {
+    if (phase === 'ready') this.simulation.dispatch({ type: 'start' });
+    else if (phase === 'paused') this.simulation.dispatch({ type: 'resume' });
+    else {
+      this.simulation.restart();
+      this.scene.restart();
+    }
+  }
+
+  private setObservability(snapshot: GameSnapshot, phase: GamePhase): void {
+    const root = this.game.canvas.parentElement;
+    if (!(root instanceof HTMLElement)) throw new Error('Game canvas has no HTMLElement parent');
+    root.dataset.phase = phase;
+    root.dataset.activeContainers = String(snapshot.active.length);
+    root.dataset.bufferedContainers = String(snapshot.buffer.filter(Boolean).length);
+    root.dataset.remainingPixels = String(snapshot.board.flat().filter(Boolean).length);
+  }
+
+  private enterFatal(error: unknown): void {
+    this.fatalError = true;
+    if (!this.errorLogged) {
+      this.errorLogged = true;
+      console.error(error);
+    }
+    try {
+      this.renderSnapshot();
+    } catch (renderError) {
+      if (!this.errorLogged) console.error(renderError);
+    }
+  }
+
+  private shutdown(): void {
+    this.unbindVisibility?.();
+    this.unbindVisibility = undefined;
   }
 
   private playEvents(events: readonly DomainEvent[]): void {
