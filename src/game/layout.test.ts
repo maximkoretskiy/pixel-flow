@@ -27,8 +27,15 @@ describe('portrait layout', () => {
   });
 
   it('maps track distance clockwise around the route rectangle', () => {
-    expect(trackPoint(0, 12)).toMatchObject({ x: LAYOUT.route.x, y: LAYOUT.route.y });
-    expect(trackPoint(3, 12).x).toBe(LAYOUT.route.x + LAYOUT.route.width);
-    expect(trackPoint(6, 12).y).toBe(LAYOUT.route.y + LAYOUT.route.height);
+    expect(trackPoint(0, 12)).toMatchObject({
+      x: LAYOUT.route.x,
+      y: LAYOUT.route.y + LAYOUT.route.height,
+      angle: -Math.PI / 2,
+    });
+    expect(trackPoint(3, 12)).toMatchObject({ x: LAYOUT.route.x, y: LAYOUT.route.y });
+    expect(trackPoint(6, 12)).toMatchObject({
+      x: LAYOUT.route.x + LAYOUT.route.width,
+      y: LAYOUT.route.y,
+    });
   });
 });

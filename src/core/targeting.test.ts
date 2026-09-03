@@ -22,14 +22,14 @@ describe('targeting', () => {
     expect(traceFirstOccupied(board, { edge: 'left', index: 0 })).toBeNull();
   });
 
-  it('builds clockwise top, right, bottom, left control points', () => {
+  it('builds clockwise control points starting from the bottom-left corner', () => {
     const route = buildRoute(2, 1);
     expect(route.length).toBe(6);
     expect(route.controlPoints.map(({ ray }) => ray)).toEqual([
+      { edge: 'left', index: 0 },
       { edge: 'top', index: 0 }, { edge: 'top', index: 1 },
       { edge: 'right', index: 0 },
       { edge: 'bottom', index: 1 }, { edge: 'bottom', index: 0 },
-      { edge: 'left', index: 0 },
     ]);
   });
 });
