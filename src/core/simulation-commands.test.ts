@@ -4,7 +4,11 @@ import { FIXED_STEP_MS, GameSimulation } from './simulation';
 
 const level: LevelDefinition = {
   id: 'commands',
-  board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
+  board: { width: 1, height: 3, cells: [
+    { x: 0, y: 0, color: 'pink' },
+    { x: 0, y: 1, color: 'pink' },
+    { x: 0, y: 2, color: 'blue' },
+  ] },
   stacks: [[{ color: 'pink', ammo: 2 }, { color: 'blue', ammo: 1 }], [], [], []],
   speedTrackUnitsPerSecond: 1,
 };
@@ -27,7 +31,11 @@ describe('GameSimulation commands', () => {
   });
 
   it('ignores stale launches from an empty source', () => {
-    const game = new GameSimulation({ ...level, stacks: [[], [], [], []] });
+    const game = new GameSimulation({
+      ...level,
+      board: { width: 1, height: 1, cells: [] },
+      stacks: [[], [], [], []],
+    });
     game.dispatch({ type: 'start' });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
     expect(game.advance(FIXED_STEP_MS).map((event) => event.type)).toEqual(['gameStarted']);

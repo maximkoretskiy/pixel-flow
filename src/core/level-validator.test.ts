@@ -39,4 +39,20 @@ describe('assertValidLevel', () => {
       ]));
     }
   });
+
+  it('rejects ammo totals that do not match the pixel count for each color', () => {
+    const invalid = {
+      ...valid,
+      stacks: [[{ color: 'blue' as const, ammo: 2 }], [], [], []],
+    };
+
+    expect(() => assertValidLevel(invalid)).toThrow(LevelValidationError);
+    try {
+      assertValidLevel(invalid);
+    } catch (error) {
+      expect((error as LevelValidationError).issues).toContain(
+        'blue ammo total must match its 1 board pixel(s), received 2',
+      );
+    }
+  });
 });

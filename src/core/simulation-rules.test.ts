@@ -9,6 +9,27 @@ function running(level: LevelDefinition): GameSimulation {
   return game;
 }
 
+function protectedPinkLevel(id: string): LevelDefinition {
+  const cells: LevelDefinition['board']['cells'][number][] = [];
+  for (let y = 0; y < 5; y += 1) {
+    for (let x = 0; x < 5; x += 1) {
+      if (x === 0 || x === 4 || y === 0 || y === 4) cells.push({ x, y, color: 'blue' });
+      else if (x !== 2 || y !== 2) cells.push({ x, y, color: 'pink' });
+    }
+  }
+  return {
+    id,
+    board: { width: 5, height: 5, cells },
+    stacks: [
+      [{ color: 'pink', ammo: 1 }, { color: 'pink', ammo: 1 }, { color: 'blue', ammo: 16 }],
+      [{ color: 'pink', ammo: 1 }, { color: 'pink', ammo: 1 }],
+      [{ color: 'pink', ammo: 1 }, { color: 'pink', ammo: 1 }],
+      [{ color: 'pink', ammo: 1 }, { color: 'pink', ammo: 1 }],
+    ],
+    speedTrackUnitsPerSecond: 1200,
+  };
+}
+
 describe('GameSimulation rules', () => {
   it('does not shoot through a mismatched blocker', () => {
     const game = running({
@@ -16,7 +37,7 @@ describe('GameSimulation rules', () => {
       board: { width: 2, height: 1, cells: [
         { x: 0, y: 0, color: 'pink' }, { x: 1, y: 0, color: 'blue' },
       ] },
-      stacks: [[{ color: 'blue', ammo: 1 }], [], [], []],
+      stacks: [[{ color: 'blue', ammo: 1 }, { color: 'pink', ammo: 1 }], [], [], []],
       speedTrackUnitsPerSecond: 60,
     });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
@@ -31,7 +52,7 @@ describe('GameSimulation rules', () => {
       board: { width: 1, height: 2, cells: [
         { x: 0, y: 0, color: 'blue' }, { x: 0, y: 1, color: 'blue' },
       ] },
-      stacks: [[{ color: 'blue', ammo: 1 }], [], [], []],
+      stacks: [[{ color: 'blue', ammo: 1 }, { color: 'blue', ammo: 1 }], [], [], []],
       speedTrackUnitsPerSecond: 60,
     });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
@@ -42,13 +63,7 @@ describe('GameSimulation rules', () => {
   });
 
   it('enters danger on five returns and loses on the sixth', () => {
-    const stacks = Array.from({ length: 4 }, () => [
-      { color: 'pink' as const, ammo: 1 }, { color: 'pink' as const, ammo: 1 },
-    ]);
-    const game = running({
-      id: 'overflow', board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
-      stacks, speedTrackUnitsPerSecond: 240,
-    });
+    const game = running(protectedPinkLevel('overflow'));
     for (let index = 0; index < 4; index += 1) game.dispatch({ type: 'launch', source: { kind: 'stack', index } });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
     game.advance(FIXED_STEP_MS * 2);
@@ -62,7 +77,11 @@ describe('GameSimulation rules', () => {
     const stack = Array.from({ length: 6 }, () => ({ color: 'pink' as const, ammo: 1 }));
     const game = running({
       id: 'active-limit',
-      board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
+      board: { width: 3, height: 2, cells: Array.from({ length: 6 }, (_, index) => ({
+        x: index % 3,
+        y: Math.floor(index / 3),
+        color: 'pink' as const,
+      })) },
       stacks: [stack, [], [], []],
       speedTrackUnitsPerSecond: 1,
     });
@@ -80,7 +99,7 @@ describe('GameSimulation rules', () => {
   it('wins immediately after the last pixel', () => {
     const game = running({
       id: 'win', board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
-      stacks: [[{ color: 'blue', ammo: 2 }], [], [], []], speedTrackUnitsPerSecond: 60,
+      stacks: [[{ color: 'blue', ammo: 1 }], [], [], []], speedTrackUnitsPerSecond: 60,
     });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
     expect(game.advance(FIXED_STEP_MS).at(-1)?.type).toBe('gameWon');
@@ -88,13 +107,7 @@ describe('GameSimulation rules', () => {
   });
 
   it('can relaunch any occupied buffer slot and exits danger first', () => {
-    const stacks = Array.from({ length: 4 }, () => [
-      { color: 'pink' as const, ammo: 1 }, { color: 'pink' as const, ammo: 1 },
-    ]);
-    const game = running({
-      id: 'relaunch', board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
-      stacks, speedTrackUnitsPerSecond: 240,
-    });
+    const game = running(protectedPinkLevel('relaunch'));
     for (let index = 0; index < 4; index += 1) game.dispatch({ type: 'launch', source: { kind: 'stack', index } });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
     game.advance(FIXED_STEP_MS * 2);
@@ -110,7 +123,7 @@ describe('GameSimulation rules', () => {
       board: { width: 1, height: 2, cells: [
         { x: 0, y: 0, color: 'pink' }, { x: 0, y: 1, color: 'blue' },
       ] },
-      stacks: [[{ color: 'blue', ammo: 1 }], [], [], []],
+      stacks: [[{ color: 'blue', ammo: 1 }, { color: 'pink', ammo: 1 }], [], [], []],
       speedTrackUnitsPerSecond: 1,
     };
     const run = (deltas: readonly number[]) => {
@@ -149,7 +162,7 @@ describe('GameSimulation rules', () => {
 
   it('does not move containers while paused', () => {
     const game = running({
-      id: 'pause', board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
+      id: 'pause', board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'pink' }] },
       stacks: [[{ color: 'pink', ammo: 1 }], [], [], []], speedTrackUnitsPerSecond: 1,
     });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });

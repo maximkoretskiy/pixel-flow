@@ -1,47 +1,60 @@
 import { describe, expect, it } from 'vitest';
+import type { ColorId, LaunchSource } from '../core/model';
 import { FIXED_STEP_MS, GameSimulation } from '../core/simulation';
 import { assertValidLevel } from '../core/level-validator';
 import { LEVEL_ONE } from './level-one';
 
 describe('LEVEL_ONE', () => {
-  it('is valid and has four visible stacks', () => {
+  it('defines a balanced 15x15 pixel-art level', () => {
     expect(() => assertValidLevel(LEVEL_ONE)).not.toThrow();
+    expect(LEVEL_ONE.board).toMatchObject({ width: 15, height: 15 });
+    expect(LEVEL_ONE.board.cells).toHaveLength(225);
     expect(LEVEL_ONE.stacks).toHaveLength(4);
+    expect(LEVEL_ONE.stacks.every((stack) => stack.length === 3)).toBe(true);
+    expect(LEVEL_ONE.speedTrackUnitsPerSecond).toBe(30);
+
+    const pixelCounts = Object.fromEntries(
+      ['blue', 'green', 'orange', 'pink'].map((color) => [
+        color,
+        LEVEL_ONE.board.cells.filter((cell) => cell.color === color).length,
+      ]),
+    );
+    const ammoCounts = Object.fromEntries(
+      ['blue', 'green', 'orange', 'pink'].map((color) => [
+        color,
+        LEVEL_ONE.stacks.flat()
+          .filter((container) => container.color === color)
+          .reduce((total, container) => total + container.ammo, 0),
+      ]),
+    );
+    const expectedCounts = { blue: 125, green: 24, orange: 23, pink: 53 };
+    expect(pixelCounts).toEqual(expectedCounts);
+    expect(ammoCounts).toEqual(expectedCounts);
   });
 
-  it('is solvable through the intended buffer loop', () => {
+  it('is solvable by clearing its exposed color layers in order', () => {
     const game = new GameSimulation(LEVEL_ONE);
     game.dispatch({ type: 'start' });
     game.advance(FIXED_STEP_MS);
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
-    game.advance(2100);
-    expect(game.getSnapshot().buffer[0]).toEqual({ color: 'pink', ammo: 1 });
-    expect(game.getSnapshot().board.flat().filter(Boolean)).toEqual(['pink']);
-    game.dispatch({ type: 'launch', source: { kind: 'buffer', index: 0 } });
-    game.advance(2100);
-    expect(game.getSnapshot().phase).toBe('won');
-  });
 
-  it('supports intentional danger and loss through the six unsafe containers', () => {
-    const game = new GameSimulation(LEVEL_ONE);
-    game.dispatch({ type: 'start' });
-    game.advance(FIXED_STEP_MS);
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 1 } });
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 1 } });
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 2 } });
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 2 } });
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 3 } });
+    const drain = (source: LaunchSource, color: ColorId) => {
+      game.dispatch({ type: 'launch', source });
+      for (let lap = 0; lap < 10; lap += 1) {
+        game.advance(2100);
+        const snapshot = game.getSnapshot();
+        if (snapshot.phase === 'won' || !snapshot.board.flat().includes(color)) return;
+        const slot = snapshot.buffer.findIndex((container) => container?.color === color);
+        if (slot === -1) return;
+        game.dispatch({ type: 'launch', source: { kind: 'buffer', index: slot } });
+      }
+      throw new Error(`container did not finish clearing ${color}`);
+    };
 
-    game.advance(2100);
+    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index }, 'blue');
+    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index }, 'pink');
+    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index }, 'orange');
+    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index: 3 }, 'green');
 
-    expect(game.getSnapshot()).toMatchObject({ phase: 'running', danger: true });
-    expect(game.getSnapshot().buffer.filter(Boolean)).toHaveLength(5);
-
-    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 3 } });
-    game.advance(2100);
-
-    expect(game.getSnapshot().phase).toBe('lost');
-    expect(game.getSnapshot().buffer.filter(Boolean)).toHaveLength(5);
+    expect(game.getSnapshot()).toMatchObject({ phase: 'won', danger: false });
   });
 });

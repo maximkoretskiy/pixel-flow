@@ -38,5 +38,16 @@ export function assertValidLevel(level: LevelDefinition): void {
     }
   }));
 
+  SUPPORTED_COLORS.forEach((color) => {
+    const pixelCount = level.board.cells.filter((cell) => cell.color === color).length;
+    const ammoTotal = level.stacks
+      .flat()
+      .filter((container) => container.color === color)
+      .reduce((total, container) => total + container.ammo, 0);
+    if (ammoTotal !== pixelCount) {
+      issues.push(`${color} ammo total must match its ${pixelCount} board pixel(s), received ${ammoTotal}`);
+    }
+  });
+
   if (issues.length > 0) throw new LevelValidationError(issues);
 }

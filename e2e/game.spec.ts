@@ -32,7 +32,7 @@ test('keeps source hit regions usable at 320x568 and launches the intended stack
   await expect(root).toHaveAttribute('data-active-containers', '1');
 });
 
-test('loses when a sixth unsafe container returns to a full buffer', async ({ page }) => {
+test('caps concurrent route traffic at five containers', async ({ page }) => {
   await page.goto(process.env.PAGES_BASE ?? '/');
   const root = page.locator('#game-root');
   const canvas = page.locator('canvas');
@@ -48,16 +48,13 @@ test('loses when a sixth unsafe container returns to a full buffer', async ({ pa
     const target = LAYOUT.stackTargets[index];
     await clickVirtual(target.x + target.width / 2, target.y + target.height / 2);
   };
+  await launchStack(0);
+  await launchStack(0);
+  await launchStack(0);
   await launchStack(1);
   await launchStack(1);
-  await launchStack(2);
-  await launchStack(2);
-  await launchStack(3);
-  await expect(root).toHaveAttribute('data-buffered-containers', '5', { timeout: 5_000 });
+  await launchStack(1);
+
+  await expect(root).toHaveAttribute('data-active-containers', '5');
   await expect(root).toHaveAttribute('data-phase', 'running');
-
-  await launchStack(3);
-
-  await expect(root).toHaveAttribute('data-phase', 'lost', { timeout: 5_000 });
-  await expect(root).toHaveAttribute('data-buffered-containers', '5');
 });
