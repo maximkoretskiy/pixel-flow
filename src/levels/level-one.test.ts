@@ -22,4 +22,26 @@ describe('LEVEL_ONE', () => {
     game.advance(2100);
     expect(game.getSnapshot().phase).toBe('won');
   });
+
+  it('supports intentional danger and loss through the six unsafe containers', () => {
+    const game = new GameSimulation(LEVEL_ONE);
+    game.dispatch({ type: 'start' });
+    game.advance(FIXED_STEP_MS);
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 1 } });
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 1 } });
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 2 } });
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 2 } });
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 3 } });
+
+    game.advance(2100);
+
+    expect(game.getSnapshot()).toMatchObject({ phase: 'running', danger: true });
+    expect(game.getSnapshot().buffer.filter(Boolean)).toHaveLength(5);
+
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 3 } });
+    game.advance(2100);
+
+    expect(game.getSnapshot().phase).toBe('lost');
+    expect(game.getSnapshot().buffer.filter(Boolean)).toHaveLength(5);
+  });
 });

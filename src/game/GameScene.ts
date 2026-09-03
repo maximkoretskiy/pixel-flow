@@ -9,6 +9,7 @@ import { BoardView, COLOR_HEX } from './views/BoardView';
 import { RouteView } from './views/RouteView';
 import { SourcesView } from './views/SourcesView';
 import { OverlayView } from './views/OverlayView';
+import { HeaderView } from './views/HeaderView';
 import { bindVisibility } from './visibility-controller';
 
 export class GameScene extends Phaser.Scene {
@@ -16,6 +17,7 @@ export class GameScene extends Phaser.Scene {
   private boardView!: BoardView;
   private routeView!: RouteView;
   private sourcesView!: SourcesView;
+  private headerView!: HeaderView;
   private overlayView!: OverlayView;
   private unbindVisibility?: () => void;
   private fatalError = false;
@@ -35,6 +37,7 @@ export class GameScene extends Phaser.Scene {
     this.sourcesView = new SourcesView(this, (source) => {
       this.simulation.dispatch({ type: 'launch', source });
     });
+    this.headerView = new HeaderView(this);
     this.overlayView = new OverlayView(this, (phase) => this.handleOverlayAction(phase));
     this.unbindVisibility = bindVisibility(document, () => {
       this.simulation.dispatch({ type: 'pause' });
@@ -60,6 +63,7 @@ export class GameScene extends Phaser.Scene {
     this.routeView.render(snapshot);
     this.sourcesView.render(snapshot);
     const phase = this.fatalError ? 'error' : snapshot.phase;
+    this.headerView.render(phase, snapshot.danger);
     this.overlayView.render(phase);
     this.setObservability(snapshot, phase);
   }

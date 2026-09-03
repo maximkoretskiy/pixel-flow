@@ -13,15 +13,15 @@ export const LAYOUT = {
   route: { x: 28, y: 72, width: 334, height: 430 },
   board: { x: 78, y: 148, width: 234, height: 234 },
   bufferSlots: Array.from({ length: 5 }, (_, index): Rect => ({
-    x: 25 + index * 70,
-    y: 526,
-    width: 60,
-    height: 56,
+    x: 13 + index * 74,
+    y: 518,
+    width: 68,
+    height: 68,
   })),
   stackTargets: Array.from({ length: 4 }, (_, index): Rect => ({
-    x: 25 + index * 92,
-    y: 610,
-    width: 64,
-    height: 154,
+    x: 13 + index * 94,
+    y: 602,
+    width: 82,
+    height: 164,
   })),
 } as const;

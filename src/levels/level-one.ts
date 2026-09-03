@@ -12,9 +12,9 @@ export const LEVEL_ONE: LevelDefinition = {
   board: { width: 3, height: 3, cells },
   stacks: [
     [{ color: 'pink', ammo: 1 }, { color: 'blue', ammo: 8 }],
-    [{ color: 'orange', ammo: 1 }],
-    [{ color: 'green', ammo: 1 }],
-    [{ color: 'orange', ammo: 1 }],
+    [{ color: 'orange', ammo: 1 }, { color: 'green', ammo: 1 }],
+    [{ color: 'green', ammo: 1 }, { color: 'orange', ammo: 1 }],
+    [{ color: 'orange', ammo: 1 }, { color: 'green', ammo: 1 }],
   ],
   speedTrackUnitsPerSecond: 6,
 };

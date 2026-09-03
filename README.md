@@ -2,6 +2,8 @@
 
 One-level mobile-first real-time color puzzle prototype.
 
+Supported viewport: `320 × 568` CSS pixels or larger. The portrait canvas scales with Phaser FIT; actionable stack and buffer regions remain at least `48 × 48` CSS pixels at that minimum.
+
 ## Develop
 
 ```bash

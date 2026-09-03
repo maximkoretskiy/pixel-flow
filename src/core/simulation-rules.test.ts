@@ -104,6 +104,34 @@ describe('GameSimulation rules', () => {
       .toEqual(run(Array.from({ length: 20 }, () => 100)));
   });
 
+  it('resolves a later-offset shot from a lower launch ID before a higher launch ID', () => {
+    const game = running({
+      id: 'launch-order',
+      board: { width: 2, height: 2, cells: [
+        { x: 0, y: 0, color: 'blue' },
+        { x: 0, y: 1, color: 'blue' },
+        { x: 1, y: 1, color: 'pink' },
+      ] },
+      stacks: [
+        [{ color: 'blue', ammo: 2 }],
+        [{ color: 'pink', ammo: 1 }],
+        [],
+        [],
+      ],
+      speedTrackUnitsPerSecond: 210,
+    });
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 1 } });
+
+    const events = game.advance(FIXED_STEP_MS);
+
+    expect(events.some((event) => event.type === 'gameWon')).toBe(false);
+    expect(game.getSnapshot().board).toEqual([
+      [null, null],
+      ['blue', null],
+    ]);
+  });
+
   it('does not move containers while paused', () => {
     const game = running({
       id: 'pause', board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },

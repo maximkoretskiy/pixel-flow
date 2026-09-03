@@ -27,6 +27,6 @@ export function collectTrackEvents(
       if (lapEnd > start && lapEnd <= end) events.push({ type: 'lap', launchId: container.launchId, offset: lapEnd - start });
     }
   }
-  return events.sort((a, b) => a.offset - b.offset || a.launchId - b.launchId ||
-    (a.type === 'control' ? -1 : 1));
+  return events.sort((a, b) => a.launchId - b.launchId || a.offset - b.offset ||
+    (a.type === b.type ? 0 : a.type === 'control' ? -1 : 1));
 }
