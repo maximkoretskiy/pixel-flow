@@ -42,7 +42,7 @@ The board is a rectangular grid. Each occupied cell contains one destructible pi
 
 ### Sources
 
-The level has four ordered stacks. The player can launch only the top container of a stack. Every container in every stack remains visible.
+The level has four ordered stack positions. The player can launch only the top container of a stack. Every container in every stack remains visible. When a launch empties a stack, the remaining non-empty stacks compact left in their existing order, leaving empty positions on the right.
 
 A returned container occupies one of five buffer slots. The player may relaunch any occupied buffer slot at any time. Launching immediately frees its source stack position or buffer slot.
 

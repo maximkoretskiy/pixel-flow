@@ -86,6 +86,7 @@ export class GameSimulation {
 
   private tick(events: DomainEvent[]): void {
     const pending = this.commands.splice(0);
+    let shouldCompactStacks = false;
     for (const command of pending) {
       if (command.type === 'start' && this.phase === 'ready') {
         this.phase = 'running';
@@ -97,8 +98,15 @@ export class GameSimulation {
         this.phase = 'running';
         events.push({ type: 'gameResumed' });
       } else if (command.type === 'launch') {
-        this.processLaunch(command.source, events);
+        shouldCompactStacks = this.processLaunch(command.source, events) || shouldCompactStacks;
       }
+    }
+    if (shouldCompactStacks) {
+      const occupied = this.stacks.filter((stack) => stack.length > 0);
+      this.stacks = [
+        ...occupied,
+        ...Array.from({ length: this.stacks.length - occupied.length }, () => []),
+      ];
     }
     if (this.phase !== 'running') return;
 
@@ -113,12 +121,12 @@ export class GameSimulation {
     this.active.forEach((container) => { container.distance += travelDistance; });
   }
 
-  private processLaunch(source: LaunchSource, events: DomainEvent[]): void {
-    if (this.phase !== 'running' || this.active.length >= MAX_ACTIVE_CONTAINERS) return;
+  private processLaunch(source: LaunchSource, events: DomainEvent[]): boolean {
+    if (this.phase !== 'running' || this.active.length >= MAX_ACTIVE_CONTAINERS) return false;
     const seed = source.kind === 'stack'
       ? this.stacks[source.index]?.shift()
       : this.takeBuffer(source.index, events);
-    if (!seed) return;
+    if (!seed) return false;
     const container = {
       launchId: this.nextLaunchId++,
       color: seed.color,
@@ -133,6 +141,7 @@ export class GameSimulation {
       color: container.color,
       ammo: container.ammo,
     });
+    return source.kind === 'stack' && this.stacks[source.index]?.length === 0;
   }
 
   private takeBuffer(index: number, events: DomainEvent[]): ContainerSeed | undefined {

@@ -50,10 +50,16 @@ describe('LEVEL_ONE', () => {
       throw new Error(`container did not finish clearing ${color}`);
     };
 
-    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index }, 'blue');
-    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index }, 'pink');
-    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index }, 'orange');
-    for (let index = 0; index < 3; index += 1) drain({ kind: 'stack', index: 3 }, 'green');
+    const drainNextStack = (color: ColorId) => {
+      const index = game.getSnapshot().stacks.findIndex((stack) => stack[0]?.color === color);
+      if (index === -1) throw new Error(`no stack starts with ${color}`);
+      drain({ kind: 'stack', index }, color);
+    };
+
+    for (let index = 0; index < 3; index += 1) drainNextStack('blue');
+    for (let index = 0; index < 3; index += 1) drainNextStack('pink');
+    for (let index = 0; index < 3; index += 1) drainNextStack('orange');
+    for (let index = 0; index < 3; index += 1) drainNextStack('green');
 
     expect(game.getSnapshot()).toMatchObject({ phase: 'won', danger: false });
   });

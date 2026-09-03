@@ -96,6 +96,37 @@ describe('GameSimulation rules', () => {
     expect(game.getSnapshot().stacks[0]).toEqual([{ color: 'pink', ammo: 1 }]);
   });
 
+  it('compacts the remaining stacks left after a launch empties a stack', () => {
+    const game = running({
+      id: 'compact-stacks',
+      board: { width: 3, height: 2, cells: [
+        { x: 0, y: 0, color: 'pink' },
+        { x: 1, y: 0, color: 'blue' },
+        { x: 2, y: 0, color: 'blue' },
+        { x: 0, y: 1, color: 'green' },
+        { x: 1, y: 1, color: 'green' },
+        { x: 2, y: 1, color: 'green' },
+      ] },
+      stacks: [
+        [{ color: 'pink', ammo: 1 }],
+        [{ color: 'blue', ammo: 2 }],
+        [{ color: 'green', ammo: 3 }],
+        [],
+      ],
+      speedTrackUnitsPerSecond: 1,
+    });
+
+    game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
+    game.advance(FIXED_STEP_MS);
+
+    expect(game.getSnapshot().stacks).toEqual([
+      [{ color: 'blue', ammo: 2 }],
+      [{ color: 'green', ammo: 3 }],
+      [],
+      [],
+    ]);
+  });
+
   it('wins immediately after the last pixel', () => {
     const game = running({
       id: 'win', board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
