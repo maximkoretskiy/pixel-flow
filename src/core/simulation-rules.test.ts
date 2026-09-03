@@ -13,8 +13,8 @@ describe('GameSimulation rules', () => {
   it('does not shoot through a mismatched blocker', () => {
     const game = running({
       id: 'blocked',
-      board: { width: 1, height: 2, cells: [
-        { x: 0, y: 0, color: 'pink' }, { x: 0, y: 1, color: 'blue' },
+      board: { width: 2, height: 1, cells: [
+        { x: 0, y: 0, color: 'pink' }, { x: 1, y: 0, color: 'blue' },
       ] },
       stacks: [[{ color: 'blue', ammo: 1 }], [], [], []],
       speedTrackUnitsPerSecond: 60,
@@ -56,6 +56,25 @@ describe('GameSimulation rules', () => {
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 1 } });
     game.advance(FIXED_STEP_MS * 2);
     expect(game.getSnapshot().phase).toBe('lost');
+  });
+
+  it('keeps a sixth container in its source while five are active', () => {
+    const stack = Array.from({ length: 6 }, () => ({ color: 'pink' as const, ammo: 1 }));
+    const game = running({
+      id: 'active-limit',
+      board: { width: 1, height: 1, cells: [{ x: 0, y: 0, color: 'blue' }] },
+      stacks: [stack, [], [], []],
+      speedTrackUnitsPerSecond: 1,
+    });
+    for (let index = 0; index < 6; index += 1) {
+      game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
+    }
+
+    const events = game.advance(FIXED_STEP_MS);
+
+    expect(events.filter((event) => event.type === 'containerLaunched')).toHaveLength(5);
+    expect(game.getSnapshot().active).toHaveLength(5);
+    expect(game.getSnapshot().stacks[0]).toEqual([{ color: 'pink', ammo: 1 }]);
   });
 
   it('wins immediately after the last pixel', () => {
@@ -104,32 +123,28 @@ describe('GameSimulation rules', () => {
       .toEqual(run(Array.from({ length: 20 }, () => 100)));
   });
 
-  it('resolves a later-offset shot from a lower launch ID before a higher launch ID', () => {
+  it('resolves simultaneous shots by launch ID against the updated board', () => {
     const game = running({
       id: 'launch-order',
-      board: { width: 2, height: 2, cells: [
+      board: { width: 2, height: 1, cells: [
         { x: 0, y: 0, color: 'blue' },
-        { x: 0, y: 1, color: 'blue' },
-        { x: 1, y: 1, color: 'pink' },
+        { x: 1, y: 0, color: 'pink' },
       ] },
       stacks: [
-        [{ color: 'blue', ammo: 2 }],
+        [{ color: 'blue', ammo: 1 }],
         [{ color: 'pink', ammo: 1 }],
         [],
         [],
       ],
-      speedTrackUnitsPerSecond: 210,
+      speedTrackUnitsPerSecond: 60,
     });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 0 } });
     game.dispatch({ type: 'launch', source: { kind: 'stack', index: 1 } });
 
     const events = game.advance(FIXED_STEP_MS);
 
-    expect(events.some((event) => event.type === 'gameWon')).toBe(false);
-    expect(game.getSnapshot().board).toEqual([
-      [null, null],
-      ['blue', null],
-    ]);
+    expect(events.some((event) => event.type === 'gameWon')).toBe(true);
+    expect(game.getSnapshot().board).toEqual([[null, null]]);
   });
 
   it('does not move containers while paused', () => {

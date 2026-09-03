@@ -17,6 +17,7 @@ import type {
 } from './model';
 
 export const FIXED_STEP_MS = 1000 / 60;
+const MAX_ACTIVE_CONTAINERS = 5;
 
 type MutableActiveContainer = {
   -readonly [Key in keyof ActiveContainer]: ActiveContainer[Key]
@@ -113,7 +114,7 @@ export class GameSimulation {
   }
 
   private processLaunch(source: LaunchSource, events: DomainEvent[]): void {
-    if (this.phase !== 'running') return;
+    if (this.phase !== 'running' || this.active.length >= MAX_ACTIVE_CONTAINERS) return;
     const seed = source.kind === 'stack'
       ? this.stacks[source.index]?.shift()
       : this.takeBuffer(source.index, events);
