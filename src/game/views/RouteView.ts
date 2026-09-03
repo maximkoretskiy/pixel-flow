@@ -48,4 +48,10 @@ export class RouteView {
       visual.node.setPosition(point.x, point.y).setRotation(point.angle);
     }
   }
+
+  getPosition(launchId: number): { readonly x: number; readonly y: number } | undefined {
+    const visual = this.visuals.get(launchId);
+    if (!visual) return undefined;
+    return { x: visual.node.x, y: visual.node.y };
+  }
 }

@@ -9,4 +9,8 @@ describe('view contracts', () => {
     expect(typeof RouteView.prototype.render).toBe('function');
     expect(typeof SourcesView.prototype.render).toBe('function');
   });
+
+  it('exposes active visual positions for event effects', () => {
+    expect(typeof RouteView.prototype.getPosition).toBe('function');
+  });
 });

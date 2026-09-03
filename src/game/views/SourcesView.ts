@@ -12,10 +12,18 @@ export class SourcesView {
     this.graphics = scene.add.graphics();
     const addZone = (rect: Rect, source: LaunchSource) => {
       const zone = scene.add.zone(rect.x, rect.y, rect.width, rect.height).setOrigin(0).setInteractive();
-      zone.on('pointerdown', () => zone.setScale(0.96));
-      zone.on('pointerout', () => zone.setScale(1));
+      const pressedOverlay = scene.add.rectangle(
+        rect.x + rect.width / 2,
+        rect.y + rect.height / 2,
+        rect.width,
+        rect.height,
+        0xffffff,
+        0.18,
+      ).setVisible(false);
+      zone.on('pointerdown', () => pressedOverlay.setVisible(true));
+      zone.on('pointerout', () => pressedOverlay.setVisible(false));
       zone.on('pointerup', () => {
-        zone.setScale(1);
+        pressedOverlay.setVisible(false);
         onLaunch(source);
       });
     };

@@ -52,15 +52,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private animateDestroyedPixel(event: Extract<DomainEvent, { type: 'pixelDestroyed' }>): void {
+    const renderedPoint = this.routeView.getPosition(event.launchId);
     const source = this.simulation.getSnapshot().active.find((item) => item.launchId === event.launchId);
-    const sourcePoint = source
+    const sourcePoint = renderedPoint ?? (source
       ? trackPoint(source.distance % this.routeLength, this.routeLength)
-      : { x: LAYOUT.route.x, y: LAYOUT.route.y };
+      : { x: LAYOUT.route.x, y: LAYOUT.route.y });
     const cellWidth = LAYOUT.board.width / LEVEL_ONE.board.width;
     const cellHeight = LAYOUT.board.height / LEVEL_ONE.board.height;
     const targetX = LAYOUT.board.x + (event.x + 0.5) * cellWidth;
     const targetY = LAYOUT.board.y + (event.y + 0.5) * cellHeight;
     const tracer = this.add.line(0, 0, sourcePoint.x, sourcePoint.y, targetX, targetY, COLOR_HEX[event.color], 0.9)
+      .setOrigin(0)
       .setLineWidth(3);
     const burst = this.add.rectangle(targetX, targetY, cellWidth - 2, cellHeight - 2, COLOR_HEX[event.color]);
     this.tweens.add({ targets: tracer, alpha: 0, duration: 120, onComplete: () => tracer.destroy() });
