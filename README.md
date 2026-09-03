@@ -25,7 +25,7 @@ npm run test:e2e
 
 - Safari on a current iPhone: no page scroll, pull-to-refresh, accidental zoom, clipped safe areas, or background-time jumps.
 - Chrome on a current Android phone: same checks plus accurate taps on all four stacks and five buffer slots.
-- On both devices: complete the scripted level, force five buffered containers to see danger styling, and verify a sixth return loses.
+- On both devices: verify the `15 × 15` flower remains legible, complete the scripted level, and rapidly tap six available containers to confirm only five enter the route.
 
 ## Deploy
 
