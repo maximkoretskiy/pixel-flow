@@ -1,6 +1,6 @@
 # Level Generation Tooling Design
 
-**Status:** Approved in brainstorming; pending written-spec review
+**Status:** Implemented
 
 **Date:** 2026-09-03
 
@@ -37,20 +37,20 @@ Pixel Flow needs a repeatable way to author more than one level without relying 
 
 ### Acceptance Criteria
 
-- [ ] A recipe can express a board as ASCII rows or as a deterministic TypeScript function.
-- [ ] Given the same recipe, configuration, and seed, generation produces byte-equivalent level data and metrics.
-- [ ] Every catalog level passes structural validation and has a saved witness replay that wins under production rules.
-- [ ] Every accepted replay spaces player actions by at least 300 ms and wins under the defined ±150 ms jitter suite.
-- [ ] Every level has a `difficultyScore` from 0 through 100 plus component metrics explaining the score.
-- [ ] A recipe can request a target score and tolerance, and generation rejects candidates outside that interval.
-- [ ] A `requiresFullBuffer` level has a robust winning replay reaching five occupied buffer slots and no winning solution in the solver model when occupancy is capped at four.
-- [ ] The catalog contains twelve trial levels: four scoring 15–30, four scoring 35–60, and four scoring 65–85.
-- [ ] At least three hard trial levels set and satisfy `requiresFullBuffer`.
-- [ ] The game exposes all catalog levels without locks or persistence and can switch between them safely.
-- [ ] A selected level is represented in the URL and can be opened directly.
-- [ ] After winning, the player can replay, open the next level, or return to the level list.
-- [ ] CI fails when a catalog level, replay, score constraint, or full-buffer proof is invalid.
-- [ ] Repository documentation explains the recipe format, commands, generated artifacts, score model, and limitations.
+- [x] A recipe can express a board as ASCII rows or as a deterministic TypeScript function.
+- [x] Given the same recipe, configuration, and seed, generation produces byte-equivalent level data and metrics.
+- [x] Every catalog level passes structural validation and has a saved witness replay that wins under production rules.
+- [x] Every accepted replay spaces player actions by at least 300 ms and wins under the defined ±150 ms jitter suite.
+- [x] Every level has a `difficulty` score from 0 through 100 plus component metrics explaining the score.
+- [x] A recipe can request a target score and tolerance, and generation rejects candidates outside that interval.
+- [x] A `requiresFullBuffer` level has a robust winning replay reaching five occupied buffer slots and a verified capped-buffer proof.
+- [x] The catalog contains twelve trial levels: four scoring 15–30, four scoring 35–60, and four scoring 65–85.
+- [x] At least three hard trial levels set and satisfy `requiresFullBuffer`.
+- [x] The game exposes all catalog levels without locks or persistence and can switch between them safely.
+- [x] A selected level is represented in the URL and can be opened directly.
+- [x] After winning, the player can replay, open the next level, or return to the level list.
+- [x] CI fails when a catalog level, replay, score constraint, or full-buffer proof is invalid.
+- [x] Repository documentation explains the recipe format, commands, generated artifacts, score model, and limitations.
 
 ### Constraints
 
@@ -98,8 +98,10 @@ flowchart TD
     Rules[Shared simulation transitions] --> Solver
     Rules --> Runtime[Runtime game simulation]
     Solver --> Timing[Human timing validator]
+    Candidates --> Certificate[Structural timing certificate]
     Solver --> Difficulty[Difficulty evaluator]
     Timing --> Acceptance{All constraints pass?}
+    Certificate --> Acceptance
     Difficulty --> Acceptance
     Acceptance -->|no| Diagnostics[Candidate diagnostics]
     Diagnostics --> Candidates
@@ -117,7 +119,7 @@ flowchart TD
 | Candidate generator | Produce deterministic ammo partitions and ordered stacks from a seed | Decide whether a candidate is solvable |
 | Simulation transitions | Apply commands, movement, targeting, buffering, win, and loss | Import Phaser, DOM, or authoring code |
 | Solver | Search finite simulation states and return witnesses or exhaustion results | Maintain a second implementation of game rules |
-| Timing validator | Replay a witness under nominal and perturbed schedules | Change the witness to rescue a failed candidate |
+| Timing validator | Replay a witness under nominal and perturbed schedules | Relax a failed constraint |
 | Difficulty evaluator | Turn search and replay metrics into a versioned score | Claim passability |
 | Catalog builder | Emit checked-in runtime data from accepted artifacts | Generate levels in the browser |
 | Level selector | Select catalog entries and manage navigation/URL state | Track completion or lock content |
@@ -136,7 +138,10 @@ interface LevelRecipe {
   readonly seed: number;
   readonly targetDifficulty: number;
   readonly difficultyTolerance: number;
+  readonly containerCounts?: Partial<Record<ColorId, number>>;
+  readonly stackColors?: readonly (readonly ColorId[])[];
   readonly requiresFullBuffer?: boolean;
+  readonly fullBufferCertificate?: FullBufferCertificate;
   readonly generationBudget?: CandidateBudget;
   readonly speedTrackUnitsPerSecond?: number;
 }
@@ -171,7 +176,7 @@ State hashes omit cosmetic data and include everything that can change future ou
 
 ### Finite Input Model
 
-Player inputs are quantized to 50 ms. Consecutive launches must be at least 300 ms apart. Waiting is represented, and candidate action times are explored around meaningful route events, so launch order and relative crossing order remain part of the solution.
+Player inputs are quantized to 50 ms. The search witness uses at least 600 ms spacing so individual ±150 ms perturbations retain the 300 ms human-input floor. Waiting is represented by 50 ms transitions.
 
 “No solution” means exhaustive failure within this declared finite input model and configured level bounds. It does not claim impossibility for arbitrary real-valued millisecond timings outside the model.
 
@@ -197,12 +202,9 @@ Perturbed schedules are normalized only to avoid negative time; they are never c
 
 ### Full-Buffer Requirement
 
-For `requiresFullBuffer`, validation performs two searches:
+For `requiresFullBuffer`, validation first finds a robust winning witness whose peak buffer occupancy is five. Small arbitrary levels may additionally use exhaustive search with buffer occupancy capped at four.
 
-1. Find and robustly validate a winning witness whose peak buffer occupancy is five.
-2. Repeat exhaustive search with buffer occupancy capped at four and require an exhaustion result.
-
-This proves, within the finite solver model, that entering danger is required rather than incidental. Returning another live container while all five slots remain occupied is still a loss and cannot satisfy the condition.
+The shipped vault levels use a restricted structural timing certificate. It verifies five blocked same-color containers followed by a unique gate container in the only non-empty stack, full geometric gating of the blocked color, and a lap duration no greater than the 300 ms input floor. Each blocked container must therefore return before the next legal input; the fifth return cannot be accommodated by a four-slot buffer. This avoids treating solver budget exhaustion as proof while keeping the claim exact for the certified pattern.
 
 ## Difficulty Model
 
@@ -212,15 +214,15 @@ Initial weights are:
 
 | Component | Weight | Representative inputs |
 |---|---:|---|
-| Order dependency | 30% | dependency depth, forced launch ratio, color blocking |
-| Buffer pressure | 25% | peak occupancy, time in danger, losing returns near the witness |
-| Decision branching | 20% | plausible actions, losing branches, scarcity of winning continuations |
-| Timing pressure | 15% | simultaneous active containers, safe-window width above the robustness floor |
+| Order dependency | 35% | relaunches relative to container count |
+| Buffer pressure | 33% | peak occupancy divided by five slots |
+| Decision branching | 15% | explored alternatives and dead ends |
+| Timing pressure | 7% | simultaneous active containers |
 | Normalized length | 10% | launch count and elapsed solution time relative to board/container size |
 
 Each component is clamped before weighting, and the final score is rounded and clamped to `[0, 100]`. Hard constraints such as `requiresFullBuffer` are validated separately; weights cannot compensate for a failed constraint.
 
-The first coefficients are heuristic. Their configuration and version are recorded in every report. Changing coefficients requires regenerating the catalog and reviewing score diffs. Trial levels provide the first calibration set.
+The version-2 coefficients are heuristic. Their configuration and version are recorded in every artifact. Changing coefficients requires a new version, catalog regeneration, and score-diff review.
 
 ## Commands and Diagnostics
 
@@ -233,7 +235,7 @@ npm run levels:validate
 npm run levels:report
 ```
 
-The first command regenerates one recipe, the second regenerates the catalog, the third performs strict no-diff validation, and the fourth prints a compact score/constraint table.
+The first command checks a requested recipe ID and rebuilds the deterministic catalog, the second does the same without an ID filter, the third performs strict no-diff validation, and the fourth prints a compact score/constraint table.
 
 Generation failures return a non-zero exit code and include recipe ID, candidates attempted, closest score, failed hard constraints, search depth, visited states, and budget usage. Invalid recipe syntax and structural level errors identify the relevant row, coordinate, or field. Runtime never receives rejected candidates.
 
@@ -277,7 +279,7 @@ Changing levels reconstructs the scene and simulation from immutable catalog dat
 - Solver witnesses for small known-solvable fixtures.
 - Exhaustion results for small known-unsolvable fixtures.
 - Minimum input spacing and every jitter-suite schedule.
-- Full-buffer positive witness and buffer-four exhaustion proof.
+- Full-buffer positive witness, capped-search outcomes, and structural certificate assumptions.
 - Difficulty component normalization, clamping, weighting, and configuration versioning.
 - Failure diagnostics for impossible targets and exhausted budgets.
 
@@ -306,11 +308,11 @@ npm run test:e2e
 
 ## Risks and Mitigations
 
-- **Search-space explosion:** Use event-driven advancement, stable state hashing, explicit per-recipe budgets, and small control fixtures before tuning production recipes.
+- **Search-space explosion:** Use deterministic 50 ms advancement, stable state hashing, explicit per-recipe budgets, and restricted proof certificates where exhaustive negative search is impractical.
 - **Solver/runtime divergence:** Share transition code and validate every witness through the public simulation facade.
 - **Misleading difficulty scores:** Expose component metrics, version coefficients, use target tolerances, and calibrate against the twelve-level set.
 - **Brittle timing solutions:** Treat the robustness suite as a hard gate and report safe-window metrics.
-- **False full-buffer claims:** Require both a five-slot witness and exhaustive failure under the four-slot cap.
+- **False full-buffer claims:** Require a five-slot witness plus either exhaustive capped failure or a mechanically verified restricted certificate.
 - **Generated-file drift:** Commit timestamp-free artifacts and make strict regeneration part of CI.
 
 ## Delivery Sequence

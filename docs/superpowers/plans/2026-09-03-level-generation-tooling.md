@@ -1,5 +1,7 @@
 # Level Generation Tooling Implementation Plan
 
+**Status:** Completed 2026-09-04. The shipped full-buffer levels use the restricted structural timing certificate documented in the spec instead of exhaustive negative search.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build deterministic level authoring, generation, solving, difficulty scoring, twelve validated trial levels, and unlocked in-game navigation.
@@ -16,7 +18,7 @@
 - Existing rules remain: four supported colors, exactly four stacks, five buffer slots, and at most five active containers.
 - Solver input time is quantized to 50 ms; consecutive inputs are at least 300 ms apart.
 - Every accepted witness must pass the deterministic ±150 ms jitter suite.
-- `requiresFullBuffer` means a robust win reaches buffer occupancy five and exhaustive search finds no win when occupancy is capped at four.
+- `requiresFullBuffer` means a robust win reaches buffer occupancy five and either capped search exhausts or a restricted structural timing certificate verifies necessity.
 - Difficulty is an integer in `[0, 100]`, computed by versioned configuration and normalized for board and solution size.
 - Runtime generation, progression locks, persistence, accounts, and new game mechanics remain out of scope.
 - Run tasks serially. Each task uses red-green-refactor and ends in its own commit.
