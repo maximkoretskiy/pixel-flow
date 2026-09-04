@@ -11,7 +11,10 @@ import { RouteView } from './views/RouteView';
 import { SourcesView } from './views/SourcesView';
 import { OverlayView } from './views/OverlayView';
 import { HeaderView } from './views/HeaderView';
+import { LevelSelectorView } from './views/LevelSelectorView';
+import type { OverlayAction } from './views/OverlayView';
 import { bindVisibility } from './visibility-controller';
+import { getNextLevel, writeLevelSelection } from '../levels/selection';
 
 export class GameScene extends Phaser.Scene {
   private simulation!: GameSimulation;
@@ -20,11 +23,13 @@ export class GameScene extends Phaser.Scene {
   private sourcesView!: SourcesView;
   private headerView!: HeaderView;
   private overlayView!: OverlayView;
+  private levelSelectorView!: LevelSelectorView;
   private unbindVisibility?: () => void;
   private fatalError = false;
   private errorLogged = false;
   private entry!: LevelArtifact;
   private routeLength = 0;
+  private resumeAfterSelector = false;
 
   constructor(private readonly initialLevelId: string = LEVEL_CATALOG[0].id) {
     super('pixel-flow');
@@ -47,8 +52,18 @@ export class GameScene extends Phaser.Scene {
     this.sourcesView = new SourcesView(this, (source) => {
       this.simulation.dispatch({ type: 'launch', source });
     });
-    this.headerView = new HeaderView(this, `Level ${this.entry.ordinal}: ${this.entry.title}`);
-    this.overlayView = new OverlayView(this, (phase) => this.handleOverlayAction(phase));
+    this.headerView = new HeaderView(
+      this,
+      `${this.entry.ordinal}. ${this.entry.title}`,
+      () => this.openLevelSelector(),
+    );
+    this.overlayView = new OverlayView(this, (action) => this.handleOverlayAction(action));
+    this.levelSelectorView = new LevelSelectorView(
+      this,
+      LEVEL_CATALOG,
+      (entry) => this.selectLevel(entry.id),
+      () => this.closeLevelSelector(),
+    );
     this.unbindVisibility = bindVisibility(document, () => {
       this.simulation.dispatch({ type: 'pause' });
     });
@@ -74,16 +89,35 @@ export class GameScene extends Phaser.Scene {
     this.sourcesView.render(snapshot);
     const phase = this.fatalError ? 'error' : snapshot.phase;
     this.headerView.render(phase, snapshot.danger);
-    this.overlayView.render(phase);
+    this.overlayView.render(phase, Boolean(getNextLevel(this.entry.id)));
     this.setObservability(snapshot, phase);
   }
 
-  private handleOverlayAction(phase: Exclude<GamePhase, 'running'>): void {
-    if (phase === 'ready') this.simulation.dispatch({ type: 'start' });
-    else if (phase === 'paused') this.simulation.dispatch({ type: 'resume' });
-    else {
-      this.scene.restart({ levelId: this.entry.id });
-    }
+  private handleOverlayAction(action: OverlayAction): void {
+    if (action === 'start') this.simulation.dispatch({ type: 'start' });
+    else if (action === 'continue') this.simulation.dispatch({ type: 'resume' });
+    else if (action === 'levels') this.openLevelSelector();
+    else if (action === 'next') {
+      const next = getNextLevel(this.entry.id);
+      if (next) this.selectLevel(next.id);
+    } else this.scene.restart({ levelId: this.entry.id });
+  }
+
+  private openLevelSelector(): void {
+    this.resumeAfterSelector = this.simulation.getSnapshot().phase === 'running';
+    if (this.resumeAfterSelector) this.simulation.dispatch({ type: 'pause' });
+    this.levelSelectorView.show();
+  }
+
+  private closeLevelSelector(): void {
+    this.levelSelectorView.hide();
+    if (this.resumeAfterSelector) this.simulation.dispatch({ type: 'resume' });
+    this.resumeAfterSelector = false;
+  }
+
+  private selectLevel(levelId: string): void {
+    writeLevelSelection(levelId, 'push');
+    this.scene.restart({ levelId });
   }
 
   private setObservability(snapshot: GameSnapshot, phase: GamePhase): void {
@@ -91,6 +125,7 @@ export class GameScene extends Phaser.Scene {
     if (!(root instanceof HTMLElement)) throw new Error('Game canvas has no HTMLElement parent');
     root.dataset.phase = phase;
     root.dataset.levelId = this.entry.id;
+    root.dataset.levelSelector = this.levelSelectorView.isVisible() ? 'open' : 'closed';
     root.dataset.activeContainers = String(snapshot.active.length);
     root.dataset.bufferedContainers = String(snapshot.buffer.filter(Boolean).length);
     root.dataset.remainingPixels = String(snapshot.board.flat().filter(Boolean).length);

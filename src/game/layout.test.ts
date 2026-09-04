@@ -41,4 +41,15 @@ describe('portrait layout', () => {
       y: LAYOUT.route.y,
     });
   });
+
+  it('places an unlocked selector trigger and twelve cells inside the canvas', () => {
+    expect(LAYOUT.levelButton).toEqual({ x: 20, y: 16, width: 180, height: 44 });
+    expect(LAYOUT.levelSelectorCells).toHaveLength(12);
+    for (const cell of LAYOUT.levelSelectorCells) {
+      expect(cell.x).toBeGreaterThanOrEqual(0);
+      expect(cell.y).toBeGreaterThanOrEqual(0);
+      expect(cell.x + cell.width).toBeLessThanOrEqual(GAME_WIDTH);
+      expect(cell.y + cell.height).toBeLessThanOrEqual(GAME_HEIGHT);
+    }
+  });
 });

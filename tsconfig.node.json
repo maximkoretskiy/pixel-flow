@@ -16,6 +16,7 @@
     "tools/**/*.ts",
     "src/core/**/*.ts",
     "src/level-tools/**/*.ts",
+    "src/levels/**/*.ts",
     "src/game/layout.ts"
   ],
   "exclude": ["src/**/*.test.ts"]

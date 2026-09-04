@@ -10,6 +10,13 @@ export interface Rect {
 
 export const LAYOUT = {
   header: { x: 20, y: 16, width: 350, height: 44 },
+  levelButton: { x: 20, y: 16, width: 180, height: 44 },
+  levelSelectorCells: Array.from({ length: 12 }, (_, index): Rect => ({
+    x: 20 + (index % 3) * 120,
+    y: 174 + Math.floor(index / 3) * 96,
+    width: 110,
+    height: 84,
+  })),
   route: { x: 28, y: 72, width: 334, height: 430 },
   board: { x: 78, y: 148, width: 234, height: 234 },
   bufferSlots: Array.from({ length: 5 }, (_, index): Rect => ({
