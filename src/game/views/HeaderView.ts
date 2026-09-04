@@ -18,7 +18,7 @@ export function getStatusLabel(phase: GamePhase, danger: boolean): string {
 export class HeaderView {
   private readonly status: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, levelLabel = 'Level') {
     const header = LAYOUT.header;
     scene.add.rectangle(
       header.x + header.width / 2,
@@ -28,7 +28,7 @@ export class HeaderView {
       0x1e293b,
       0.96,
     ).setStrokeStyle(2, 0x475569);
-    scene.add.text(header.x + 16, header.y + header.height / 2, 'Level 1', {
+    scene.add.text(header.x + 16, header.y + header.height / 2, levelLabel, {
       fontFamily: 'system-ui',
       fontSize: '18px',
       color: '#ffffff',

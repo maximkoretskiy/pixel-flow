@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import type { DomainEvent, GamePhase, GameSnapshot } from '../core/model';
 import { buildRoute } from '../core/route';
 import { GameSimulation } from '../core/simulation';
-import { LEVEL_ONE } from '../levels/level-one';
+import { LEVEL_CATALOG, getLevelById } from '../levels/catalog';
+import type { LevelArtifact } from '../level-tools/types';
 import { LAYOUT } from './layout';
 import { trackPoint } from './track-geometry';
 import { BoardView, COLOR_HEX } from './views/BoardView';
@@ -22,14 +23,23 @@ export class GameScene extends Phaser.Scene {
   private unbindVisibility?: () => void;
   private fatalError = false;
   private errorLogged = false;
-  private readonly routeLength = buildRoute(LEVEL_ONE.board.width, LEVEL_ONE.board.height).length;
+  private entry!: LevelArtifact;
+  private routeLength = 0;
 
-  constructor() {
+  constructor(private readonly initialLevelId: string = LEVEL_CATALOG[0].id) {
     super('pixel-flow');
   }
 
+  init(data?: { readonly levelId?: string }): void {
+    this.entry = getLevelById(data?.levelId ?? this.initialLevelId) ?? LEVEL_CATALOG[0];
+    this.routeLength = buildRoute(
+      this.entry.level.board.width,
+      this.entry.level.board.height,
+    ).length;
+  }
+
   create(): void {
-    this.simulation = new GameSimulation(LEVEL_ONE);
+    this.simulation = new GameSimulation(this.entry.level);
     this.fatalError = false;
     this.errorLogged = false;
     this.boardView = new BoardView(this);
@@ -37,7 +47,7 @@ export class GameScene extends Phaser.Scene {
     this.sourcesView = new SourcesView(this, (source) => {
       this.simulation.dispatch({ type: 'launch', source });
     });
-    this.headerView = new HeaderView(this);
+    this.headerView = new HeaderView(this, `Level ${this.entry.ordinal}: ${this.entry.title}`);
     this.overlayView = new OverlayView(this, (phase) => this.handleOverlayAction(phase));
     this.unbindVisibility = bindVisibility(document, () => {
       this.simulation.dispatch({ type: 'pause' });
@@ -72,8 +82,7 @@ export class GameScene extends Phaser.Scene {
     if (phase === 'ready') this.simulation.dispatch({ type: 'start' });
     else if (phase === 'paused') this.simulation.dispatch({ type: 'resume' });
     else {
-      this.simulation.restart();
-      this.scene.restart();
+      this.scene.restart({ levelId: this.entry.id });
     }
   }
 
@@ -81,6 +90,7 @@ export class GameScene extends Phaser.Scene {
     const root = this.game.canvas.parentElement;
     if (!(root instanceof HTMLElement)) throw new Error('Game canvas has no HTMLElement parent');
     root.dataset.phase = phase;
+    root.dataset.levelId = this.entry.id;
     root.dataset.activeContainers = String(snapshot.active.length);
     root.dataset.bufferedContainers = String(snapshot.buffer.filter(Boolean).length);
     root.dataset.remainingPixels = String(snapshot.board.flat().filter(Boolean).length);
@@ -117,8 +127,8 @@ export class GameScene extends Phaser.Scene {
     const sourcePoint = renderedPoint ?? (source
       ? trackPoint(source.distance % this.routeLength, this.routeLength)
       : { x: LAYOUT.route.x, y: LAYOUT.route.y });
-    const cellWidth = LAYOUT.board.width / LEVEL_ONE.board.width;
-    const cellHeight = LAYOUT.board.height / LEVEL_ONE.board.height;
+    const cellWidth = LAYOUT.board.width / this.entry.level.board.width;
+    const cellHeight = LAYOUT.board.height / this.entry.level.board.height;
     const targetX = LAYOUT.board.x + (event.x + 0.5) * cellWidth;
     const targetY = LAYOUT.board.y + (event.y + 0.5) * cellHeight;
     const tracer = this.add.line(0, 0, sourcePoint.x, sourcePoint.y, targetX, targetY, COLOR_HEX[event.color], 0.9)
