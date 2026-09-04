@@ -56,4 +56,30 @@ describe('generateCandidates', () => {
   it('stops at the configured candidate budget', () => {
     expect([...generateCandidates(RECIPE)]).toHaveLength(6);
   });
+
+  it('honors requested per-color container counts', () => {
+    const [candidate] = generateCandidates({
+      ...RECIPE,
+      containerCounts: { blue: 3, green: 2, orange: 1, pink: 2 },
+    });
+    const counts = Object.fromEntries(SUPPORTED_COLORS.map((color) => [
+      color,
+      candidate.stacks.flat().filter((container) => container.color === color).length,
+    ]));
+
+    expect(counts).toEqual({ blue: 3, green: 2, orange: 1, pink: 2 });
+  });
+
+  it('honors an explicit four-stack color template', () => {
+    const stackColors = [
+      ['blue', 'blue', 'green'],
+      ['orange'],
+      ['pink', 'green'],
+      ['pink', 'blue'],
+    ] as const;
+    const [candidate] = generateCandidates({ ...RECIPE, stackColors });
+
+    expect(candidate.stacks.map((stack) => stack.map((container) => container.color)))
+      .toEqual(stackColors);
+  });
 });

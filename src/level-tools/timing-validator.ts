@@ -2,7 +2,7 @@ import type { LevelDefinition, TimedLaunch } from '../core/model';
 import { replayLevel } from '../core/replay';
 
 const JITTER_MS = 150;
-const MINIMUM_INPUT_SPACING_MS = 300;
+export const HUMAN_MINIMUM_INPUT_SPACING_MS = 300;
 
 export type TimingValidationResult =
   | { readonly ok: true; readonly schedulesChecked: number }
@@ -45,7 +45,7 @@ export function buildJitterSchedules(
 function hasValidSpacing(schedule: readonly TimedLaunch[]): boolean {
   return schedule.every((launch, index) => {
     if (launch.atMs < 0) return false;
-    return index === 0 || launch.atMs - schedule[index - 1].atMs >= MINIMUM_INPUT_SPACING_MS;
+    return index === 0 || launch.atMs - schedule[index - 1].atMs >= HUMAN_MINIMUM_INPUT_SPACING_MS;
   });
 }
 

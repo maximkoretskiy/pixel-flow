@@ -4,6 +4,16 @@ import { deriveDifficultyMetrics, scoreDifficulty } from './difficulty';
 import { solveLevel } from './solver';
 import type { LevelArtifact, LevelRecipe } from './types';
 
+function addEventMargin(
+  witness: LevelArtifact['witness'],
+  extraSpacingMs: number,
+): LevelArtifact['witness'] {
+  return witness.map((launch, index) => ({
+    atMs: launch.atMs + index * extraSpacingMs,
+    source: { ...launch.source },
+  }));
+}
+
 export type GenerationResult =
   | { readonly kind: 'accepted'; readonly artifact: LevelArtifact; readonly candidatesAttempted: number }
   | {
@@ -24,7 +34,7 @@ export function generateLevelArtifact(recipe: LevelRecipe, ordinal: number): Gen
     candidatesAttempted += 1;
     const solution = solveLevel(candidate, {
       quantumMs: 50,
-      minimumInputSpacingMs: 300,
+      minimumInputSpacingMs: 600,
       maxVisitedStates: recipe.generationBudget.maxVisitedStates,
       maxElapsedMs: recipe.generationBudget.maxElapsedMs,
       requiredPeakBufferOccupancy: recipe.requiresFullBuffer ? 5 : undefined,
@@ -34,13 +44,27 @@ export function generateLevelArtifact(recipe: LevelRecipe, ordinal: number): Gen
       continue;
     }
 
-    const constraints = validateLevelConstraints(candidate, recipe, solution.witness);
-    if (!constraints.ok) {
-      reasons.add(constraints.reason);
+    let acceptedWitness: LevelArtifact['witness'] | undefined;
+    let lastConstraintReason = 'human-timing';
+    for (const extraSpacingMs of [0, 150, 300, 450, 600, 900]) {
+      const witness = addEventMargin(solution.witness, extraSpacingMs);
+      const constraints = validateLevelConstraints(candidate, recipe, witness);
+      if (constraints.ok) {
+        acceptedWitness = witness;
+        break;
+      }
+      lastConstraintReason = constraints.reason;
+    }
+    if (!acceptedWitness) {
+      reasons.add(lastConstraintReason);
       continue;
     }
 
-    const metrics = deriveDifficultyMetrics(candidate, solution.metrics);
+    const addedElapsedMs = (acceptedWitness.at(-1)?.atMs ?? 0) - (solution.witness.at(-1)?.atMs ?? 0);
+    const metrics = deriveDifficultyMetrics(candidate, {
+      ...solution.metrics,
+      elapsedMs: solution.metrics.elapsedMs + addedElapsedMs,
+    });
     const difficulty = scoreDifficulty(metrics);
     const distance = Math.abs(difficulty.score - recipe.targetDifficulty);
     if (distance < closestDistance) {
@@ -66,7 +90,7 @@ export function generateLevelArtifact(recipe: LevelRecipe, ordinal: number): Gen
         recipeId: recipe.id,
         seed: recipe.seed,
         requiresFullBuffer: recipe.requiresFullBuffer ?? false,
-        witness: solution.witness,
+        witness: acceptedWitness,
       },
     };
   }

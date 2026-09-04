@@ -29,9 +29,20 @@ export interface LevelRecipe {
   readonly seed: number;
   readonly targetDifficulty: number;
   readonly difficultyTolerance: number;
+  readonly containerCounts?: Readonly<Partial<Record<ColorId, number>>>;
+  readonly stackColors?: readonly (readonly ColorId[])[];
   readonly requiresFullBuffer?: boolean;
+  readonly fullBufferCertificate?: FullBufferCertificate;
   readonly generationBudget: GenerationBudget;
   readonly speedTrackUnitsPerSecond: number;
+}
+
+export interface FullBufferCertificate {
+  readonly kind: 'blocked-prefix';
+  readonly stackIndex: number;
+  readonly blockedPrefixCount: 5;
+  readonly blockedColor: ColorId;
+  readonly gateColor: ColorId;
 }
 
 export interface DifficultyMetrics {

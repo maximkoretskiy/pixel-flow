@@ -32,13 +32,13 @@ describe('scoreDifficulty', () => {
     };
 
     expect(scoreDifficulty(metrics)).toEqual({
-      score: 53,
-      version: '1',
+      score: 58,
+      version: '2',
       components: {
-        orderDependency: 15,
-        bufferPressure: 25,
-        decisionBranching: 5,
-        timingPressure: 7.5,
+        orderDependency: 17.5,
+        bufferPressure: 33,
+        decisionBranching: 3.75,
+        timingPressure: 3.5,
         normalizedLength: 0,
       },
     });
@@ -84,5 +84,19 @@ describe('deriveDifficultyMetrics', () => {
       timingPressure: 0.8,
       normalizedLength: 1,
     });
+  });
+
+  it('counts alternative search branches even before dead ends appear', () => {
+    const search: SearchMetrics = {
+      visitedStates: 10,
+      generatedBranches: 30,
+      deadEnds: 0,
+      peakActiveContainers: 1,
+      peakBufferedContainers: 0,
+      actionCount: 2,
+      elapsedMs: 1_000,
+    };
+
+    expect(deriveDifficultyMetrics(LEVEL, search).decisionBranching).toBe(0.5);
   });
 });

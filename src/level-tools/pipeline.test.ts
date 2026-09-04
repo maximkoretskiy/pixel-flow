@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateLevelArtifact, serializeCatalog } from './pipeline';
+import { validateHumanTiming } from './timing-validator';
 import type { LevelRecipe } from './types';
 
 const RECIPE: LevelRecipe = {
@@ -11,7 +12,7 @@ const RECIPE: LevelRecipe = {
     symbols: { B: 'blue' },
   },
   seed: 12,
-  targetDifficulty: 8,
+  targetDifficulty: 10,
   difficultyTolerance: 0,
   generationBudget: {
     maxCandidates: 2,
@@ -31,7 +32,7 @@ describe('generateLevelArtifact', () => {
       id: RECIPE.id,
       title: RECIPE.title,
       ordinal: 3,
-      difficulty: 8,
+      difficulty: 10,
       recipeId: RECIPE.id,
       seed: RECIPE.seed,
       requiresFullBuffer: false,
@@ -46,6 +47,43 @@ describe('generateLevelArtifact', () => {
       .toBe(JSON.stringify(generateLevelArtifact(RECIPE, 1)));
   });
 
+  it('searches for a witness with enough spacing to survive jitter', () => {
+    const result = generateLevelArtifact({
+      ...RECIPE,
+      id: 'pipeline-color-pair',
+      board: { kind: 'ascii', rows: ['BG'], symbols: { B: 'blue', G: 'green' } },
+      targetDifficulty: 50,
+      difficultyTolerance: 100,
+    }, 1);
+
+    expect(result.kind).toBe('accepted');
+    if (result.kind !== 'accepted') return;
+    expect(result.artifact.witness).toHaveLength(2);
+    expect(result.artifact.witness[1].atMs - result.artifact.witness[0].atMs)
+      .toBeGreaterThanOrEqual(600);
+  });
+
+  it('adds event margin when the earliest solver witness is too timing-sensitive', () => {
+    const result = generateLevelArtifact({
+      ...RECIPE,
+      id: 'pipeline-layered-square',
+      board: {
+        kind: 'ascii',
+        rows: ['BBBB', 'BBBB', 'BBBB', 'BBBB'],
+        symbols: { B: 'blue' },
+      },
+      stackColors: [['blue'], [], [], []],
+      targetDifficulty: 50,
+      difficultyTolerance: 100,
+      generationBudget: { ...RECIPE.generationBudget, maxElapsedMs: 5_000 },
+      speedTrackUnitsPerSecond: 30,
+    }, 1);
+
+    expect(result.kind).toBe('accepted');
+    if (result.kind !== 'accepted') return;
+    expect(validateHumanTiming(result.artifact.level, result.artifact.witness).ok).toBe(true);
+  });
+
   it('reports the closest score after candidate budget exhaustion', () => {
     const result = generateLevelArtifact({
       ...RECIPE,
@@ -56,7 +94,7 @@ describe('generateLevelArtifact', () => {
       kind: 'rejected',
       recipeId: RECIPE.id,
       candidatesAttempted: 2,
-      closestScore: 8,
+      closestScore: 10,
       reasons: ['difficulty-outside-target'],
     });
   });

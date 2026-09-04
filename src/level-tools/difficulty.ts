@@ -3,12 +3,12 @@ import type { SearchMetrics } from './solver';
 import type { DifficultyMetrics } from './types';
 
 export const DIFFICULTY_CONFIG = {
-  version: '1',
+  version: '2',
   weights: {
-    orderDependency: 30,
-    bufferPressure: 25,
-    decisionBranching: 20,
-    timingPressure: 15,
+    orderDependency: 35,
+    bufferPressure: 33,
+    decisionBranching: 15,
+    timingPressure: 7,
     normalizedLength: 10,
   },
 } as const;
@@ -52,7 +52,10 @@ export function deriveDifficultyMetrics(
   return {
     orderDependency: clampUnit((search.actionCount - containerCount) / safeContainerCount),
     bufferPressure: clampUnit(search.peakBufferedContainers / 5),
-    decisionBranching: clampUnit(search.deadEnds / Math.max(1, search.generatedBranches)),
+    decisionBranching: clampUnit(Math.max(
+      search.deadEnds / Math.max(1, search.generatedBranches),
+      (search.generatedBranches / Math.max(1, search.visitedStates) - 1) / 4,
+    )),
     timingPressure: clampUnit(search.peakActiveContainers / 5),
     normalizedLength: clampUnit((search.actionCount + search.elapsedMs / 1_000) / sizeUnits),
   };
